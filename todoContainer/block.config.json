@@ -2,9 +2,9 @@
   "name": "todoContainer",
   "type": "ui-container",
   "source": {
-    "https": "https://github.com/devthalal/testDeploy.git",
+    "branch": "block_todoContainer",
     "ssh": "git@github.com:devthalal/testDeploy.git",
-    "branch": "block_todoContainer"
+    "https": "https://github.com/devthalal/testDeploy.git"
   },
   "language": "js",
   "start": "npx webpack-dev-server",

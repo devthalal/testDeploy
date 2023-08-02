@@ -2,7 +2,9 @@
   "name": "testDeploy",
   "type": "package",
   "source": {
-    "branch": "block_testDeploy"
+    "branch": "block_testDeploy",
+    "ssh": "git@github.com:devthalal/testDeploy.git",
+    "https": "https://github.com/devthalal/testDeploy.git"
   },
   "dependencies": {
     "addTodo": {

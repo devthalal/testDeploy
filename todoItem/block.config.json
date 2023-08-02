@@ -2,9 +2,9 @@
   "name": "todoItem",
   "type": "ui-elements",
   "source": {
-    "https": "https://github.com/devthalal/testDeploy.git",
+    "branch": "block_todoItem",
     "ssh": "git@github.com:devthalal/testDeploy.git",
-    "branch": "block_todoItem"
+    "https": "https://github.com/devthalal/testDeploy.git"
   },
   "language": "js",
   "start": "npx webpack-dev-server",

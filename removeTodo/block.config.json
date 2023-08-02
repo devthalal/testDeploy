@@ -1,9 +1,9 @@
 {
   "type": "function",
   "source": {
-    "https": "https://github.com/devthalal/testDeploy.git",
+    "branch": "block_removeTodo",
     "ssh": "git@github.com:devthalal/testDeploy.git",
-    "branch": "block_removeTodo"
+    "https": "https://github.com/devthalal/testDeploy.git"
   },
   "language": "nodejs",
   "start": "node index.js",
