@@ -1,0 +1,22 @@
+{
+  "type": "function",
+  "source": {
+    "https": "https://github.com/devthalal/testDeploy.git",
+    "ssh": "git@github.com:devthalal/testDeploy.git",
+    "branch": "block_listTodos"
+  },
+  "language": "nodejs",
+  "start": "node index.js",
+  "build": "npm run build",
+  "postPull": "npm i",
+  "name": "listTodos",
+  "supportedAppblockVersions": [
+    "1.0.0"
+  ],
+  "blockId": "AdJP4y0ep7Kgo2qR5duyu",
+  "isPublic": true,
+  "repoType": "mono",
+  "parentBlockIDs": [
+    "f2Amu1Rjl90R0yiNabHh9"
+  ]
+}

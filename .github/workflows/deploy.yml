@@ -1,0 +1,313 @@
+name: blue-green
+run-name: a deploy request by ${{ github.actor }}
+env:
+  SSH_PRIVATE_KEY: ${{secrets.SSH_PRIVATE_KEY_OF_SLIM5}}
+  HOSTNAME: ${{ secrets.HOSTNAME  }}
+  USER_NAME: ${{ secrets.USER_NAME  }}
+  CONTAINER_PATH: ${{ secrets.CONTAINER }}
+on: workflow_dispatch
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup env on host
+        run: |
+          echo "$SSH_PRIVATE_KEY" > private_key && chmod 600 private_key
+          ssh -o StrictHostKeyChecking=no -i private_key -T ${USER_NAME}@${HOSTNAME} '
+
+          export PATH="$(echo $HOME)/.local/share/fnm:$PATH" >/dev/null 2>&1
+
+          [[ $- == *i* ]] && echo Started an Interactive Shell || echo Started a Non-interactive Shell
+          shopt -q login_shell && echo 'Login shell' || echo 'Non-login shell'
+
+          rm -rf log.log
+          touch log.log
+          echo "$(date +%a-%b-%d-%T)  Starting..." >> log.log
+
+          fnm_available=0
+          node_available=0
+          pm2_available=0
+          bb_available=0
+          caddy_available=0
+          ExitCode=0
+
+          echo "$(date +%a-%b-%d-%T)  Checking fnm" >> log.log
+          fnm --version >/dev/null 2>&1
+          ExitCode=$?
+          if [ $ExitCode -eq 127 ];
+            then
+              echo "$(date +%a-%b-%d-%T)  fnm is not installed" >> log.log
+            else
+              fnm_available=1
+              eval "$(fnm env)" > /dev/null 2>&1
+              echo "$(date +%a-%b-%d-%T)  fnm is installed" >> log.log
+          fi
+
+          echo "$(date +%a-%b-%d-%T)  Checking node" >> log.log
+          node -v >/dev/null 2>&1
+          ExitCode=$?
+          if [ $ExitCode = 127 ];
+            then
+              echo "$(date +%a-%b-%d-%T)  node is not installed" >> log.log
+            else
+              node_available=1
+              echo "$(date +%a-%b-%d-%T)  node is installed" >> log.log
+          fi
+
+          echo "$(date +%a-%b-%d-%T)  Checking caddy" >> log.log
+          caddy -v >/dev/null 2>&1
+          ExitCode=$?
+          if [ $ExitCode -eq 127 ];
+            then
+              echo "$(date +%a-%b-%d-%T)  caddy is not installed" >> log.log
+            else
+              caddy_available=1
+              echo "$(date +%a-%b-%d-%T)  caddy is installed" >> log.log
+          fi
+
+          if [ $node_available -eq 1 ];
+            then
+              echo "$(date +%a-%b-%d-%T)  Checking pm2" >> log.log
+              pm2 -v >/dev/null 2>&1
+              ExitCode=$?
+              if [ $ExitCode -eq 127 ];
+                then
+                  echo "$(date +%a-%b-%d-%T)  pm2 is not installed" >> log.log
+                else
+                  pm2_available=1
+                  echo "$(date +%a-%b-%d-%T)  pm2 is installed" >> log.log
+              fi
+            else
+              echo "$(date +%a-%b-%d-%T)  pm2 shall be installed after node installation" >> log.log
+          fi
+
+          if [ $node_available -eq 1 ];
+            then
+              echo "$(date +%a-%b-%d-%T)  Checking bb-cli" >> log.log
+              bb --version >/dev/null 2>&1
+              ExitCode=$?
+              if [ $ExitCode -eq 127 ];
+                then
+                  echo "$(date +%a-%b-%d-%T)  bb-cli is not installed" >> log.log
+                else
+                  bb_available=1
+                  echo "$(date +%a-%b-%d-%T)  bb-cli is installed" >> log.log
+              fi
+            else
+              echo "$(date +%a-%b-%d-%T)  bb-cli shall be installed after node installation" >> log.log
+          fi
+
+          if [ $fnm_available -eq 0 ];
+            then
+              echo "$(date +%a-%b-%d-%T)  installing fnm" >> log.log
+              curl -fsSL https://fnm.vercel.app/install | bash
+              if [ "$(echo $?)" -eq 0 ];
+                then
+                  echo "$(date +%a-%b-%d-%T)  fnm has been installed" >> log.log
+                  fnm_available=1
+                else
+                  echo "$(date +%a-%b-%d-%T)  fnm install has failed" >> log.log
+                  exit 1
+              fi
+          fi
+
+
+          if [ $node_available -eq 0 ];
+            then
+              echo "$(date +%a-%b-%d-%T)  installing node v16.19.0" >> log.log
+              fnm install v16.19.0 >/dev/null 2>&1
+              ExitCode=$?
+              if [ $ExitCode -eq 0 ];
+                then
+                  echo "$(date +%a-%b-%d-%T)  node v16.19.0 installed" >> log.log
+                  node_available=1
+                else
+                  echo "$(date +%a-%b-%d-%T)  node installation has failed" >> log.log
+                  exit 1
+              fi
+          fi
+
+          if [ $pm2_available -eq 0 ];
+            then
+              echo "$(date +%a-%b-%d-%T)  installing pm2" >> log.log
+              npm i -g pm2 >/dev/null 2>&1
+              ExitCode=$?
+              if [ $ExitCode -eq 0 ];
+                then
+                  echo "$(date +%a-%b-%d-%T)  pm2 installed" >> log.log
+                  pm2_available=1
+                else
+                  echo "$(date +%a-%b-%d-%T)  pm2 installation has failed" >> log.log
+                  exit 1
+              fi
+          fi
+
+          if [ $bb_available -eq 0 ];
+            then
+              echo "$(date +%a-%b-%d-%T)  installing bb-cli" >> log.log
+              npm i -g @appblocks/bb-cli >/dev/null 2>&1
+              ExitCode=$?
+              if [ $ExitCode -eq 0 ];
+                then
+                  echo "$(date +%a-%b-%d-%T)  bb-cli installed" >> log.log
+                  pm2_available=1
+                else
+                  echo "$(date +%a-%b-%d-%T)  bb-cli installation has failed" >> log.log
+                  exit 1
+              fi
+          fi
+
+          if [ $caddy_available -eq 0 ];
+            then
+              echo "$(date +%a-%b-%d-%T)  installing caddy" >> log.log
+              sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https >/dev/null 2>&1
+              curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg >/dev/null 2>&1
+              curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list >/dev/null 2>&1
+              sudo apt update >/dev/null 2>&1
+              sudo apt install caddy >/dev/null 2>&1
+              if [ $? -eq 0 ];
+                then
+                  echo "$(date +%a-%b-%d-%T)  caddy installed" >> log.log
+                  caddy_available=1
+                else
+                  echo "$(date +%a-%b-%d-%T)  caddy installation has failed" >> log.log
+                  exit 1
+              fi
+          fi
+          '
+          rm -rf private_key
+
+      - name: Decide folder
+        id: decide
+        run: |
+          echo "$SSH_PRIVATE_KEY" > private_key && chmod 600 private_key
+          d=$(ssh -o StrictHostKeyChecking=no -i private_key -T ${USER_NAME}@${HOSTNAME} '
+          export PATH="$(echo $HOME)/.local/share/fnm:$PATH" >/dev/null 2>&1
+          eval "$(fnm env)" > /dev/null 2>&1
+
+          blue_folder_exists=0
+          green_folder_exists=0
+          todeploy=''
+
+          echo "$(date +%a-%b-%d-%T)  installing checking blue" >> log.log
+
+          blue_fn_pids=$(pm2 pid Blue-fn)
+          green_fn_pids=$(pm2 pid Green-fn)
+
+          if [[ $blue_fn_pids ]];
+            then
+              echo "$(date +%a-%b-%d-%T)  Blue-fn is on" >> log.log
+            else
+              echo "$(date +%a-%b-%d-%T)  Blue-fn is off" >> log.log
+          fi
+
+          if [[ $green_fn_pids ]];
+            then
+              echo "$(date +%a-%b-%d-%T)  Green-fn is on" >> log.log
+            else
+              echo "$(date +%a-%b-%d-%T)  Green-fn is off" >> log.log
+          fi
+
+          if [[ $blue_fn_pids ]] && [[ $green_fn_pids ]];
+            then
+              echo "ATTENTION REQUIRED: Both green and blue running"
+              echo "$(date +%a-%b-%d-%T)  ATTENTION REQUIRED: Both green and blue running" >> log.log
+              exit 1
+          fi
+
+          if [[ $blue_fn_pids ]];
+            then
+              todeploy='Green'
+            else
+              todeploy='Blue'
+          fi
+
+          echo "$(date +%a-%b-%d-%T)  Removing $todeploy folder" >> log.log
+          echo $todeploy
+          rm -rf $todeploy
+          ')
+          echo "folder=$d" >> $GITHUB_OUTPUT
+          rm -rf private_key
+
+      - name: Copy files
+        run: |
+          private_key_path=~/private_key
+          echo "$SSH_PRIVATE_KEY" > ${private_key_path} && chmod 600 ${private_key_path}
+          echo "Copying to ${{ steps.decide.outputs.folder }}"
+          mkdir -p /var/www/html/${{ steps.decide.outputs.folder }}
+          scp -i ${private_key_path}  -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -pqr  $(pwd) ${USER_NAME}@${HOSTNAME}:/var/www/html/${{ steps.decide.outputs.folder }}
+          if [[ $? -eq 0 ]];
+            then
+              echo "Copying successful"
+            else
+              echo "Error in copying"
+              exit 1
+          fi
+          rm -rf ${private_key_path}
+      - name: Start Fns
+        run: |
+          echo "Starting functions"
+          private_key_path=~/private_key
+          echo "$SSH_PRIVATE_KEY" > ${private_key_path} && chmod 600 ${private_key_path}
+          port=$(ssh -o StrictHostKeyChecking=no -i ${private_key_path} -T ${USER_NAME}@${HOSTNAME} '
+
+          export PATH="$(echo $HOME)/.local/share/fnm:$PATH" >/dev/null 2>&1
+          eval "$(fnm env)" > /dev/null 2>&1
+
+          cd /var/www/html/${{ steps.decide.outputs.folder }}
+          BB_PM2_NAME="${{ steps.decide.outputs.folder }}-fn" bb start -bt function -pm2
+          port=$(grep -oP "(?<=localhost:)[0-9]+" .env.view)
+          sed -i '"'"'s@localhost\:[[:digit:]]\+@'$HOSTNAME'@g'"'"' .env.view
+          echo $port
+          ')
+          echo "function_port=$port" >> $GITHUB_OUTPUT
+          rm -rf ${private_key_path}
+
+      - name: Build Views
+        run: |
+          echo "Build views"
+          private_key_path=~/private_key
+          echo "$SSH_PRIVATE_KEY" > ${private_key_path} && chmod 600 ${private_key_path}
+          ssh -o StrictHostKeyChecking=no -i ${private_key_path} -T ${USER_NAME}@${HOSTNAME} '
+
+            export PATH="$(echo $HOME)/.local/share/fnm:$PATH" >/dev/null 2>&1
+            eval "$(fnm env)" > /dev/null 2>&1
+            cd ${{ steps.decide.outputs.folder }} && bb start -bt ui
+
+            if [[ $? -ne 0 ]];
+              then
+                echo "ui start failed"
+                bb stop
+                rm -rf ${private_key_path} 
+                exit 1
+            fi
+
+            echo "ui elements started"
+            bb stop -bt ui
+            if [[ $? -ne 0 ]];
+              then
+                echo "ui stop failed"
+                bb stop
+                rm -rf ${private_key_path} 
+                exit 1
+            fi
+            echo "ui elements stopped"
+
+            echo "building container"
+            cd '"$CONTAINER_PATH"' && npm run build
+
+            cd ~/${{ steps.decide.outputs.folder }}
+            echo "building elements"
+            cd ./._ab_em_elements
+            npm run build
+
+            // s3 upload
+
+            caddy start 
+          '
+
+      - name: Switch
+        run: echo "Switch"
